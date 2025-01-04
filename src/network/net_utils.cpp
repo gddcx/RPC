@@ -8,7 +8,7 @@ void SetNonBlockSock(uint32 fd) {
     int stat = fcntl(fd, F_GETFL, 0);
     stat |= O_NONBLOCK;
     if(fcntl(fd, F_SETFL, stat) == 0) {
-        std::cout << "set fd:" << fd << " non block" << std::endl;
+        std::cout << __func__ << ">>> set fd'" << fd << " non block" << std::endl;
     }
 }
 
