@@ -23,7 +23,7 @@ public:
     }
 
     bool GetBuffer(int requireLen, std::vector<char>& out);
-    uint32 AppendBuffer(std::vector<char>& buffer, int offset, int len);
+    int AppendBuffer(std::vector<char>& buffer, int offset, int len);
     void ClearBuffer();
     int GetSize() {
         return _recvBuffer.size();

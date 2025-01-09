@@ -24,6 +24,7 @@ public:
     }
 public:
     std::atomic<int> pendingTaskNum; // 未完成写的数据条数(未写、正在写)
+    std::atomic<int> noBeginTaskNum; // 未分配线程去执行的数据条数
 private:
     std::queue<std::vector<char>> _sendBuffer;
     std::mutex _bufMutex;
