@@ -182,7 +182,7 @@ void TcpBase::_CommonInit(int recvBufferSize) {
     _InitThreadPool();
 }
 
-void TcpBase::SendMsg(int fd, std::vector<char>& sendBuffer) {
+void TcpBase::SendMsg(int fd, const std::vector<char>& sendBuffer) {
     std::unique_lock<std::mutex> lock(_channelMutex);
     TcpChannel& channel = _channels[fd];
     lock.unlock();

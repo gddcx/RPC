@@ -14,7 +14,7 @@ public:
     SendBuffer();
     SendBuffer(const SendBuffer& buffer);
     std::vector<char> GetBuffer();
-    void AppendBuffer(std::vector<char>& buffer);
+    void AppendBuffer(const std::vector<char>& buffer);
     int GetBufferSize(); // 还没开始写的数据条数(未写)
     void Lock();
     void Unlock();

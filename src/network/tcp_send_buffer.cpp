@@ -13,7 +13,7 @@ std::vector<char> SendBuffer::GetBuffer() {
     return buffer;
 }
 
-void SendBuffer::AppendBuffer(std::vector<char>& buffer) {
+void SendBuffer::AppendBuffer(const std::vector<char>& buffer) {
     _sendBuffer.emplace(buffer);
     pendingTaskNum.fetch_add(1);
     noBeginTaskNum.fetch_add(1);

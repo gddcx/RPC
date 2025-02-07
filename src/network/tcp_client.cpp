@@ -45,7 +45,7 @@ void TcpClient::StartClient() {
     _mainThread.detach();
 }
 
-int TcpClient::Connect(std::string ipAddr, short port) {
+int TcpClient::Connect(std::string ipAddr, uint16 port) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
 
     sockaddr_in sockInfo;
@@ -56,7 +56,7 @@ int TcpClient::Connect(std::string ipAddr, short port) {
     {
         std::cout << __func__ << ">>> " << "connect to " << ipAddr << ":" << port << " succ." << std::endl;
         SetNonBlockSock(fd);
-        EpollAddSock(_epollFd, fd, EPOLLIN | EPOLLOUT | EPOLLOUT);
+        EpollAddSock(_epollFd, fd, EPOLLIN | EPOLLOUT | EPOLLET);
         std::lock_guard<std::mutex> channLock(_channelMutex);
         _channels.emplace(fd, TcpChannel(fd, _recvBufferSize));
         return fd;

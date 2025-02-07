@@ -40,10 +40,6 @@ bool RecvBuffer::GetBuffer(int requireLen, std::vector<char>& out) {
 
 int RecvBuffer::AppendBuffer(std::vector<char>& data, int offset, int len) {
     // _writePos == _checkpoint的时候有两种情况，一种是写满了，一种是空。没法判断这两种情况，所以写的时候要处理, 要gap一个byte
-    for(auto c: data){
-        std::cout << c;
-    }
-    std::cout << std::endl;
     std::lock_guard<std::mutex> lock(_bufMutex);
     int appendByteNum = 0;
     int writableSize = 0;

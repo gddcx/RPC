@@ -21,7 +21,7 @@ public:
     void InitClient(int recvBufferSize);
     void StartClient();
     void CloseClient();
-    int Connect(std::string ipAddr, short port);
+    int Connect(std::string ipAddr, uint16 port);
 };
 
 }
