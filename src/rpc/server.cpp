@@ -10,11 +10,12 @@
 
 namespace crpc {
 
-RpcServer::RpcServer(int netThread, int serviceThread): _rpcProcessor(serviceThread), _rpcAcceptor(netThread) {
+RpcServer::RpcServer(int netThread, int serviceThread): _rpcProcessor(serviceThread), _rpcAcceptor(netThread), _keeperClient(1) {
     _rpcProcessor.SetAcceptor(&_rpcAcceptor);
 }
 
 int RpcServer::Main() {
+    _keeperClient.RegisterService("TestFunc", "127.0.0.1", "50010");
     _rpcProcessor.MessageRegister(1, TestFunc);
     while(1) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));

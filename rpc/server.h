@@ -3,6 +3,7 @@
 
 #include "rpc_acceptor.h"
 #include "rpc_processor.h"
+#include "keeper_client.h"
 
 namespace crpc {
 
@@ -13,6 +14,8 @@ public:
 private:
     RpcProcessor _rpcProcessor;
     RpcAcceptor _rpcAcceptor;
+    KeeperClient _keeperClient;
+
 };
 
 }

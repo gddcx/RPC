@@ -19,7 +19,7 @@ public:
     bool SendMsg(int fd, const std::string& data);
 private:
     RpcProtocol _rpcProtocol;
-    TcpServer _tpcServer;
+    TcpServer _tcpServer;
 public:
     std::function<void(int, int, uint8_t, std::string&)> Process;
 };

@@ -3,13 +3,13 @@
 
 namespace crpc{
 
-RpcAcceptor::RpcAcceptor(int netThreadNum): _tpcServer(netThreadNum) {
-    _tpcServer.SetOnConnect(std::bind(&RpcAcceptor::_onConnectCallback, this, std::placeholders::_1));
-    _tpcServer.SetOnMessage(std::bind(&RpcAcceptor::_onMessageCallback, this, std::placeholders::_1, std::placeholders::_2));
-    _tpcServer.SetOnClose(std::bind(&RpcAcceptor::_onCloseCallback, this, std::placeholders::_1));
+RpcAcceptor::RpcAcceptor(int netThreadNum): _tcpServer(netThreadNum) {
+    _tcpServer.SetOnConnect(std::bind(&RpcAcceptor::_onConnectCallback, this, std::placeholders::_1));
+    _tcpServer.SetOnMessage(std::bind(&RpcAcceptor::_onMessageCallback, this, std::placeholders::_1, std::placeholders::_2));
+    _tcpServer.SetOnClose(std::bind(&RpcAcceptor::_onCloseCallback, this, std::placeholders::_1));
 
-    _tpcServer.InitServer(50010, 4096);
-    _tpcServer.StartServer();
+    _tcpServer.InitServer(50010, 4096);
+    _tcpServer.StartServer();
 }
 
 void RpcAcceptor::_onConnectCallback(int fd) {
@@ -34,11 +34,11 @@ void RpcAcceptor::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
 }
 
 void RpcAcceptor::_onCloseCallback(int fd) {
-    _tpcServer.Disconnection(fd);
+    _tcpServer.Disconnection(fd);
 }
 
 bool RpcAcceptor::SendMsg(int fd, const std::string& data) {
-    _tpcServer.SendMsg(fd, std::vector<char>(data.begin(), data.end()));
+    _tcpServer.SendMsg(fd, std::vector<char>(data.begin(), data.end()));
     return true;
 }
 
