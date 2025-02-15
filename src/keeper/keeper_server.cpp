@@ -1,5 +1,5 @@
 #include "keeper_server.h"
-#include "keeper_protocol.h"
+#include "service_discovery.h"
 
 KeeperServer::KeeperServer(): _tcpServer(1) {
     _tcpServer.SetOnConnect(std::bind(&KeeperServer::_onConnectCallback, this, std::placeholders::_1));
@@ -15,31 +15,35 @@ void KeeperServer::_onConnectCallback(int fd) {
 }
 
 void KeeperServer::_onMessageCallback(int fd, RecvBuffer& buffer) {
-    KeeperProtocol keeperProtocol;
-    std::vector<char> data(keeperProtocol.headerLen, 0);
-    if(buffer.GetBuffer(keeperProtocol.headerLen, data)) {
-        keeperProtocol.ParseHeader(data);
+    ServiceDiscovery serviceDiscovery;
+    std::vector<char> data(serviceDiscovery.headerLen, 0);
+    if(buffer.GetBuffer(serviceDiscovery.headerLen, data)) {
+        serviceDiscovery.ParseHeader(data);
     } else {
         return;
     }
 
     data.clear();
-    data.resize(keeperProtocol.bodyLen);
-    if(buffer.GetBuffer(keeperProtocol.bodyLen, data)) {
-        keeperProtocol.ParseBody(data);
+    data.resize(serviceDiscovery.bodyLen);
+    if(buffer.GetBuffer(serviceDiscovery.bodyLen, data)) {
+        serviceDiscovery.ParseBody(data);
     }
 
-    switch(keeperProtocol.msgType) {
-        case KeeperProtocol::Msg_Register:
+    switch(serviceDiscovery.msgType) {
+        case ServiceDiscovery::Msg_Register:
         {
-            _rpcService.RegisterService(keeperProtocol.serviceName, keeperProtocol.serviceDest);
+            _rpcService.RegisterService(serviceDiscovery.serviceIndex, serviceDiscovery.serviceDest);
             break;
         }
-        case KeeperProtocol::Msg_Query:
+        case ServiceDiscovery::Msg_Query:
         {
-            std::string hostInfo = _rpcService.QueryService(keeperProtocol.serviceName);
-            std::string rsp = KeeperProtocol::Build(keeperProtocol.serviceName, KeeperProtocol::Msg_Query, hostInfo);
-            _tcpServer.SendMsg(fd, std::vector<char>(rsp.begin(), rsp.end()));
+            try {
+                const std::vector<std::pair<uint32_t, uint16_t>>& hostInfo = _rpcService.QueryService(serviceDiscovery.serviceIndex);
+                std::string rsp = ServiceDiscovery::Build(serviceDiscovery.serviceIndex, ServiceDiscovery::Msg_Query, hostInfo);
+                _tcpServer.SendMsg(fd, std::vector<char>(rsp.begin(), rsp.end()));
+            } catch(const std::runtime_error& e) {
+                std::cout << "Runtime error:" << e.what() << std::endl;
+            }
             break;
         }
     }

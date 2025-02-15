@@ -4,18 +4,19 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <utility>
 #include <mutex>
 
 class RpcService {
 private:
-    void _SafeInsert(const std::string& serviceName, const std::string& serviceDest);
-    std::string _SafeQuery(const std::string& serviceName);
+    void _SafeInsert(uint16_t serviceIndex, const std::pair<uint32_t, uint16_t>& ipAndPort);
+    const std::vector<std::pair<uint32_t, uint16_t>>& _SafeQuery(uint16_t serviceIndex);
 private:
     std::mutex _tblMutex;
-    std::unordered_map<std::string, std::vector<std::string>> _serviceTbl; // 服务名称: [服务IP:PORT]
+    std::unordered_map<uint16_t, std::vector<std::pair<uint32_t, uint16_t>>> _serviceTbl; // 服务名称: [服务IP:PORT]
 public:
-    void RegisterService(const std::string& serviceName, const std::string& serviceDest);
-    std::string QueryService(const std::string& serriveName);
+    void RegisterService(uint16_t serviceIndex, const std::vector<std::pair<uint32_t, uint16_t>>& serviceDest);
+    const std::vector<std::pair<uint32_t, uint16_t>>& QueryService(uint16_t serviceIndex);
 };
 
 #endif

@@ -1,25 +1,27 @@
-#include <utility>
 #include <iostream>
+#include <stdexcept>
 #include "rpc_service.h"
 
-void RpcService::_SafeInsert(const std::string& serviceName, const std::string& serviceDest) {
+void RpcService::_SafeInsert(uint16_t serviceIndex, const std::pair<uint32_t, uint16_t>& ipAndPort) {
     std::lock_guard<std::mutex> lock(_tblMutex);
-    _serviceTbl[serviceName].push_back(serviceDest);
+    _serviceTbl[serviceIndex].push_back(ipAndPort);
 }
 
-std::string RpcService::_SafeQuery(const std::string& serviceName) {
+const std::vector<std::pair<uint32_t, uint16_t>>& RpcService::_SafeQuery(uint16_t serviceIndex) {
     std::lock_guard<std::mutex> lock(_tblMutex);
-    if(_serviceTbl.find(serviceName) != _serviceTbl.end()) {
-        return _serviceTbl[serviceName][0]; // TODO：缺少负载均衡，直接取了第一个主机来提供服务
+    if(_serviceTbl.find(serviceIndex) != _serviceTbl.end()) {
+        return _serviceTbl[serviceIndex];
     }
 
-    return "None";
+    throw std::runtime_error("No service");
 }
 /* TODO:服务端注册新IP后，需要watcher去更新客户端本地缓存 */
-void RpcService::RegisterService(const std::string& serviceName, const std::string& serviceDest) {
-    _SafeInsert(serviceName, serviceDest);
+void RpcService::RegisterService(uint16_t serviceIndex, const std::vector<std::pair<uint32_t, uint16_t>>& serviceDest) {
+    for(size_t idx = 0; idx < serviceDest.size(); idx++) {
+        _SafeInsert(serviceIndex, serviceDest[idx]);
+    }
 }
 
-std::string RpcService::QueryService(const std::string& sertiveName) {
-    return _SafeQuery(sertiveName);
+const std::vector<std::pair<uint32_t, uint16_t>>& RpcService::QueryService(uint16_t serviceIndex) {
+    return _SafeQuery(serviceIndex);
 }

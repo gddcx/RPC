@@ -14,16 +14,16 @@ private:
     void _onConnectCallback(int fd);
     void _onMessageCallback(int fd, RecvBuffer& recvBuf);
     void _onCloseCallback(int fd);
-    void _SafeInsert(const std::string& serviceName, const std::string& ipAddr, int port);
+    void _SafeInsert(uint16_t serviceIndex, const std::pair<uint32_t, uint16_t>& ipAndPort);
 public:
     KeeperClient(int netThread);
-    void RegisterService(const std::string& serviceName, const std::string& ipAddr, const std::string& port);
-    void FetchService(const std::string& serviceName, std::string& ipAddr, std::string& port);
+    void RegisterService(uint16_t serviceIndex, uint32_t ipAddr, uint16_t port);
+    void FetchService(uint16_t serviceIndex, std::string& ipAddr, std::string& port);
 private:
     int _fd;
     TcpClient _tcpClient;
     std::mutex _cacheMutex;
-    std::unordered_map<std::string, std::pair<std::string, int>> _serviceCache;
+    std::unordered_map<uint16_t, std::vector<std::pair<uint32_t, uint16_t>>> _serviceCache;
 };
 
 #endif
