@@ -105,9 +105,4 @@ void TcpServer::CloseServer() {
     if(_serverFd != -1) close(_serverFd);
 }
 
-void TcpServer::Disconnection(int fd) {
-    std::lock_guard<std::mutex> lock(_channelMutex);
-    _channels[fd].closeFlag = true; // TODO：也有问题，如果sendMsg后延迟再调用，就不能close(fd)了
-}
-
 } // namespace crpc

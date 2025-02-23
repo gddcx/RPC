@@ -26,7 +26,6 @@ public:
     int InitServer(uint32 port, int recvBufferSize);
     void StartServer();
     void CloseServer();
-    void Disconnection(int fd);
 
 private:
     int _serverFd = -1;

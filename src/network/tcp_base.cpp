@@ -216,6 +216,18 @@ void TcpBase::_CommClose() {
     if(_epollFd != -1) close(_epollFd); // TODO: epoll_wait期间close(_epollFd)会怎么样
 }
 
+void TcpBase::Disconnection(int fd) {
+    std::lock_guard<std::mutex> lock(_channelMutex);
+    _channels[fd].closeFlag = true;
+
+    if(_channels[fd]._sendBuffer.pendingTaskNum.load() == 0) {
+        EpollDelSock(_epollFd, fd);
+        close(fd);
+        std::lock_guard<std::mutex> lock(_channelMutex);
+        _channels.erase(fd);
+    }
+}
+
 void TcpBase::SetOnMessage(const OnMessageCallback& onMessage) {
     _onMessage = onMessage;
 }

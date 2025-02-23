@@ -67,6 +67,7 @@ protected:
 public:
     TcpBase(int threadNum);
     void SendMsg(int fd, const std::vector<char>& sendBuffer);
+    void Disconnection(int fd);
     void SetOnMessage(const OnMessageCallback& onMessage);
     void SetOnConnect(const OnConnectCallback& onConnect);
     void SetOnClose(const OnCloseCallback& onClose);
