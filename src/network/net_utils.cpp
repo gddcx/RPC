@@ -12,6 +12,14 @@ void SetNonBlockSock(uint32 fd) {
     }
 }
 
+void SetCloexecSock(uint32 fd) {
+    int stat = fcntl(fd, F_GETFD, 0);
+    stat |= FD_CLOEXEC;
+    if(fcntl(fd, F_SETFD, stat) == 0) {
+        std::cout << __func__ << ">>> set fd'" << fd << " cloexec" << std::endl;
+    }
+}
+
 void EpollAddSock(uint32 epoll, uint32 fd, uint32 event) {
     epoll_event ev;
     ev.data.fd = fd;

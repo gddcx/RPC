@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <thread>
+#include <fcntl.h>
 #include "tcp_base.h"
 #include "net_utils.h"
 
@@ -179,6 +180,7 @@ void TcpBase::_CommonInit(int recvBufferSize) {
     _recvBufferSize = recvBufferSize;
     _epollFd = epoll_create1(EPOLL_CLOEXEC);
     _eventFd = eventfd(0, 0);
+    fcntl(_eventFd, F_SETFL, FD_CLOEXEC);
     _InitThreadPool();
 }
 

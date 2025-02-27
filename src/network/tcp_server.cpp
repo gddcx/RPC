@@ -19,7 +19,7 @@ TcpServer::~TcpServer() {
 }
 
 int TcpServer::_InitServerSocket(uint32 port) {
-    _serverFd = socket(AF_INET, SOCK_STREAM, 0);
+    _serverFd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if(_serverFd == -1) {
         std::cout << __func__ << ">>> " << "create server socket fail" << std::endl;
         return -1;
@@ -59,6 +59,7 @@ void TcpServer::_AcceptNewConn() {
     }
     else {
         SetNonBlockSock(clientFd);
+        SetCloexecSock(clientFd);
         EpollAddSock(_epollFd, clientFd, EPOLLIN | EPOLLOUT | EPOLLET);
         std::cout << __func__ << ">>> " << "accept new connection succ. peer ip:" << ntohl(sockInfo.sin_addr.s_addr) << ", peer port:" << ntohs(sockInfo.sin_port) << std::endl;
         {

@@ -46,7 +46,7 @@ void TcpClient::StartClient() {
 }
 
 int TcpClient::Connect(std::string ipAddr, uint16 port) {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
 
     sockaddr_in sockInfo;
     sockInfo.sin_family = AF_INET;
