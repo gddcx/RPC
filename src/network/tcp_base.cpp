@@ -222,10 +222,10 @@ void TcpBase::Disconnection(int fd) {
     std::lock_guard<std::mutex> lock(_channelMutex);
     _channels[fd].closeFlag = true;
 
+    std::cout << "remain task:" << _channels[fd]._sendBuffer.pendingTaskNum.load() << std::endl;
     if(_channels[fd]._sendBuffer.pendingTaskNum.load() == 0) {
         EpollDelSock(_epollFd, fd);
         close(fd);
-        std::lock_guard<std::mutex> lock(_channelMutex);
         _channels.erase(fd);
     }
 }
