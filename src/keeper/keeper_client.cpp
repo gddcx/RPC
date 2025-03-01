@@ -1,59 +1,81 @@
 #include <utility>
 #include <iostream>
+#include <unistd.h>
 #include "keeper_client.h"
-#include "service_discovery.h"
 
-KeeperClient::KeeperClient(int netThread): _tcpClient(netThread) {
+KeeperClient::KeeperClient(const std::string& serverIP, uint16_t port, int netThread): _tcpClient(netThread) {
     _tcpClient.SetOnConnect(std::bind(&KeeperClient::_onConnectCallback, this, std::placeholders::_1));
     _tcpClient.SetOnMessage(std::bind(&KeeperClient::_onMessageCallback, this, std::placeholders::_1, std::placeholders::_2));
     _tcpClient.SetOnClose(std::bind(&KeeperClient::_onCloseCallback, this, std::placeholders::_1));
 
     _tcpClient.InitClient(4096);
     _tcpClient.StartClient();
-    _fd = _tcpClient.Connect("127.0.0.1", 50011);
+    _fd = _tcpClient.Connect(serverIP, port);
+    while(_fd == -1) {
+        std::cout << __FUNCTION__ << ">>> connect to " << serverIP << ":" << port << "fail" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        _fd = _tcpClient.Connect(serverIP, port);
+    }
+
+    _uuid.store(0);
+}
+
+KeeperClient::~KeeperClient() {
+    _tcpClient.CloseClient();
 }
 
 void KeeperClient::RegisterService(uint16_t serviceIndex, uint32_t ipAddr, uint16_t port) {
-    std::string data = ServiceDiscovery::Build(serviceIndex, ServiceDiscovery::Msg_Register, std::vector<std::pair<uint32_t, uint16_t>>{std::make_pair(ipAddr, port)});
+    uint16_t uuid = _uuid.fetch_add(1);
+    std::string data = ServiceDiscovery::Build(MessageType::FUNC_REGISTER, uuid, serviceIndex, std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>{{ipAddr, port}});
     _tcpClient.SendMsg(_fd, std::vector<char>(data.begin(), data.end()));
 }
 
-void KeeperClient::FetchService(uint16_t serviceIndex, std::string& ipAddr, std::string& port) {
-    std::string data = ServiceDiscovery::Build(serviceIndex, ServiceDiscovery::Msg_Query, std::vector<std::pair<uint32_t, uint16_t>>());
+std::future<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>> KeeperClient::FetchService(uint16_t serviceIndex) {
+    uint16_t uuid = _uuid.fetch_add(1);
+    std::string data = ServiceDiscovery::Build(MessageType::FUNC_QUERY, uuid, serviceIndex);
     _tcpClient.SendMsg(_fd, std::vector<char>(data.begin(), data.end()));
+    auto promise = std::make_shared<std::promise<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>>>();
+    _SafeInsert(serviceIndex, promise);
+    return promise->get_future();
 }
 
 void KeeperClient::_onConnectCallback(int fd) {
 
 }
 
+void KeeperClient::_onCloseCallback(int fd) {
+    _tcpClient.Disconnection(fd);
+}
+
 void KeeperClient::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
     ServiceDiscovery serviceDiscovery;
-    std::vector<char> data(serviceDiscovery.headerLen, 0);
-    if(recvBuf.GetBuffer(serviceDiscovery.headerLen, data)) {
+    std::vector<char> data(serviceDiscovery.commHeaderLen, 0);
+    if(recvBuf.GetBuffer(serviceDiscovery.commHeaderLen, data)) {
         serviceDiscovery.ParseHeader(data);
     } else {
         return;
     }
 
     data.clear();
-    data.resize(serviceDiscovery.bodyLen);
-    if(recvBuf.GetBuffer(serviceDiscovery.bodyLen, data)) {
+    data.resize(serviceDiscovery.protoMsgLen);
+    if(recvBuf.GetBuffer(serviceDiscovery.protoMsgLen, data)) {
         serviceDiscovery.ParseBody(data);
     }
 
-    if(serviceDiscovery.msgType == ServiceDiscovery::Msg_Query) {
-        for(auto& ipAndPort: serviceDiscovery.serviceDest) {
-            _SafeInsert(serviceDiscovery.serviceIndex, ipAndPort);
-        }
+    if(serviceDiscovery.protoMsgType == MessageType::FUNC_QUERY) {
+        _taskSyncTbl[serviceDiscovery.serviceIndex]->set_value(serviceDiscovery.serviceDest);
+        _SafeErase(serviceDiscovery.serviceIndex);
+    } else if(serviceDiscovery.protoMsgType == MessageType::FUNC_REGISTER) {
+
     }
 }
 
-void KeeperClient::_onCloseCallback(int fd) {
-    
+void KeeperClient::_SafeInsert(uint16_t serviceIndex, std::shared_ptr<std::promise<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>>> promise) {
+    std::lock_guard<std::mutex> lock(_taskSyncTblMutex);
+    _taskSyncTbl.emplace(serviceIndex, promise);
 }
 
-void KeeperClient::_SafeInsert(uint16_t serviceIndex, const std::pair<uint32_t, uint16_t>& ipAndPort) {
-    std::lock_guard<std::mutex> lock(_cacheMutex);
-    _serviceCache[serviceIndex].push_back(ipAndPort);
+void KeeperClient::_SafeErase(uint16_t serviceIndex) {
+    std::lock_guard<std::mutex> lock(_taskSyncTblMutex);
+    _taskSyncTbl.erase(serviceIndex);
 }

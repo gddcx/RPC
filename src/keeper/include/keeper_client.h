@@ -3,10 +3,12 @@
 
 #include <string>
 #include <unordered_map>
+#include <future>
 #include <mutex>
-#include <utility>
+#include <atomic>
 #include "tcp_client.h"
 #include "rpc_service.h"
+#include "service_discovery.h"
 
 using namespace crpc;
 class KeeperClient {
@@ -14,16 +16,19 @@ private:
     void _onConnectCallback(int fd);
     void _onMessageCallback(int fd, RecvBuffer& recvBuf);
     void _onCloseCallback(int fd);
-    void _SafeInsert(uint16_t serviceIndex, const std::pair<uint32_t, uint16_t>& ipAndPort);
+    void _SafeInsert(uint16_t serviceIndex, std::shared_ptr<std::promise<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>>> promise);
+    void _SafeErase(uint16_t serviceIndex);
 public:
-    KeeperClient(int netThread);
+    KeeperClient(const std::string& serverIP, uint16_t port, int netThread);
+    ~KeeperClient();
     void RegisterService(uint16_t serviceIndex, uint32_t ipAddr, uint16_t port);
-    void FetchService(uint16_t serviceIndex, std::string& ipAddr, std::string& port);
+    std::future<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>> FetchService(uint16_t serviceIndex);
 private:
-    int _fd;
+    int _fd = -1;
+    std::atomic<uint16_t> _uuid;
     TcpClient _tcpClient;
-    std::mutex _cacheMutex;
-    std::unordered_map<uint16_t, std::vector<std::pair<uint32_t, uint16_t>>> _serviceCache;
+    std::mutex _taskSyncTblMutex;
+    std::unordered_map<uint16_t, std::shared_ptr<std::promise<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>>>> _taskSyncTbl;
 };
 
 #endif
