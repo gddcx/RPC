@@ -152,6 +152,9 @@ void TcpBase::_EventHandle(uint32 fd, uint32 event) {
     if(event & EPOLLOUT)
     {
         std::unique_lock<std::mutex> channLock(_channelMutex);
+        if(_channels.find(fd) == _channels.end()) {
+            return;
+        }
         TcpChannel& channel = _channels[fd];
         channLock.unlock();
 
@@ -186,6 +189,9 @@ void TcpBase::_CommonInit(int recvBufferSize) {
 
 void TcpBase::SendMsg(int fd, const std::vector<char>& sendBuffer) {
     std::unique_lock<std::mutex> lock(_channelMutex);
+    if(_channels.find(fd) == _channels.end()) {
+        return;
+    }
     TcpChannel& channel = _channels[fd];
     lock.unlock();
 
@@ -220,9 +226,11 @@ void TcpBase::_CommClose() {
 
 void TcpBase::Disconnection(int fd) {
     std::lock_guard<std::mutex> lock(_channelMutex);
-    _channels[fd].closeFlag = true;
+    if(_channels.find(fd) == _channels.end()) {
+        return;
+    }
 
-    std::cout << "remain task:" << _channels[fd]._sendBuffer.pendingTaskNum.load() << std::endl;
+    _channels[fd].closeFlag = true;
     if(_channels[fd]._sendBuffer.pendingTaskNum.load() == 0) {
         EpollDelSock(_epollFd, fd);
         close(fd);
