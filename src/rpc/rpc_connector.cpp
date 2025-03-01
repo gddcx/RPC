@@ -2,6 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <arpa/inet.h>
+#include <stdexcept>
 #include "rpc_connector.h"
 #include "rpc_protocol.h"
 
@@ -95,8 +96,11 @@ std::string RpcConnector::CallRemoteApi(uint16_t serviceIndex, std::string& para
     _SafeMapInsert(std::make_pair(requestId, promise));
     auto future = promise->get_future();
 
-    std::string res = future.get(); // 阻塞调用
-    return res;
+    if(future.wait_for(std::chrono::seconds(3)) == std::future_status::ready) {
+        return future.get(); // 阻塞调用
+    }
+
+    throw std::runtime_error("RPC Timeout");
 }
 
 }
