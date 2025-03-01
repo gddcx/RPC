@@ -4,20 +4,34 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <unordered_set>
+#include "protocol_comm.h"
 
-class ServiceDiscovery {
+/* 
+
++--------------------------------+--------------------------------+---------------------------------------------+
+|      serviceIndex (2byte)      |          Port (2byte)          |                    IP(4byte)                |
++--------------------------------+--------------------------------+---------------------------------------------+
+
+*/
+
+struct SetCmp {
+    template <typename T1, typename T2>
+    size_t operator()(const std::pair<T1, T2>& p) const {
+        return std::hash<T1>{}(p.first) ^ std::hash<T2>{}(p.second);
+    }
+};
+
+class ServiceDiscovery: public ProtocolComm {
 public:
-    static std::string Build(uint16_t serviceIndex, uint8_t msgType, const std::vector<std::pair<uint32_t, uint16_t>>& serviceDest);
+    static std::string Build(uint8_t msgType, uint16_t id, uint16_t serviceIdx);
+    static std::string Build(uint8_t msgType, uint16_t id, uint16_t serviceIdx, const std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>& serviceDest);
     void ParseHeader(const std::vector<char>& buffer);
     void ParseBody(const std::vector<char>& buffer);
 public:
-    static const int headerLen = 5;
-    static const int ipPortUnitLen = 4 + 2;
-    enum keeperMsgType{Msg_Register, Msg_Query};
-    uint8_t msgType = 0;
+    static constexpr int ipPortUnitLen = 4 + 2;
     uint16_t serviceIndex;
-    short bodyLen = 0;
-    std::vector<std::pair<uint32_t, uint16_t>> serviceDest;
+    std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp> serviceDest;
 };
 
 #endif

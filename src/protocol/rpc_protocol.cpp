@@ -1,51 +1,20 @@
 #include <algorithm>
+#include <iostream>
+#include "protocol_comm.h"
 #include "rpc_protocol.h"
 
-void RpcProtocol::_AddMsgHeader(int requestId, char msgType, std::string& para) {
-    para = Msg::GetHeader(requestId, msgType) + para;
+std::string RpcProtocol::Build(uint16_t uuid, uint16_t serviceIdx, std::string& para) {
+    uint16_t bodyLen = sizeof(serviceIdx) + para.size();
+    std::string header = ProtocolComm::BulidComm(RPC, uuid, bodyLen);
+
+    return header + std::string((char*)&serviceIdx, sizeof(serviceIdx)) + para;
 }
 
-void RpcProtocol::_AddHttpHeader(short bodyLen, std::string& para) {
-    para = Http::GetHeader(bodyLen) + para;
+void RpcProtocol::ParseHeader(const std::vector<char>& data) {
+    ProtocolComm::ParseComm(data);
 }
 
-void RpcProtocol::_ParseHttp(const std::vector<char>& data) {
-    _http.ParseHeader(data);
-}
-
-void RpcProtocol::_ParseMsg(const std::vector<char>& data) {
-    _msg.ParseMsg(data);
-}
-
-void RpcProtocol::Build(int requestId, char msgType, std::string& para) {
-    _AddMsgHeader(requestId, msgType, para);
-    _AddHttpHeader(para.size(), para);
-}
-
-int RpcProtocol::GetHttpHeaderLen() {
-    return _http.GetHeaderLen();
-}
-
-void RpcProtocol::ParseHttp(const std::vector<char>& data) {
-    _ParseHttp(data);
-}
-
-int RpcProtocol::GetMsgLen() {
-    return _http.bodyLen;
-}
-
-void RpcProtocol::ParseMsg(const std::vector<char>& data) {
-    _ParseMsg(data);
-}
-
-int RpcProtocol::GetRequestId() {
-    return _msg.requestId;
-}
-
-uint8_t RpcProtocol::GetMsgType() {
-    return _msg.msgType;
-}
-
-std::string& RpcProtocol::GetMsg() {
-    return _msg.msg;
+void RpcProtocol::ParseBody(const std::vector<char>& data) {
+    serviceIndex = ((uint16_t)data[1] << 8) | (uint16_t)data[0];
+    serializePara = std::string(data.begin() + sizeof(serviceIndex), data.end());
 }
