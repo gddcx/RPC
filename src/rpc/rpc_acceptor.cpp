@@ -8,7 +8,7 @@ RpcAcceptor::RpcAcceptor(int netThreadNum): _tcpServer(netThreadNum) {
     _tcpServer.SetOnMessage(std::bind(&RpcAcceptor::_onMessageCallback, this, std::placeholders::_1, std::placeholders::_2));
     _tcpServer.SetOnClose(std::bind(&RpcAcceptor::_onCloseCallback, this, std::placeholders::_1));
 
-    _tcpServer.InitServer(50010, 4096);
+    _tcpServer.InitServer(50002, 4096);
     _tcpServer.StartServer();
 }
 
@@ -17,19 +17,21 @@ void RpcAcceptor::_onConnectCallback(int fd) {
 }
 
 void RpcAcceptor::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
-    int httpHeaderLen = _rpcProtocol.GetHttpHeaderLen();
-    std::vector<char> data(httpHeaderLen, 0);
-    if(recvBuf.GetBuffer(httpHeaderLen, data)) {
-        _rpcProtocol.ParseHttp(data);
+    RpcProtocol rpcProtocol;
+    std::vector<char> data(rpcProtocol.commHeaderLen, 0);
+    if(recvBuf.GetBuffer(rpcProtocol.commHeaderLen, data)) {
+        rpcProtocol.ParseHeader(data);
     } else {
         return;
     }
     data.clear();
-    int msgLen = _rpcProtocol.GetMsgLen();
-    data.resize(msgLen);
-    if(recvBuf.GetBuffer(msgLen, data)) {
-        _rpcProtocol.ParseMsg(data);
-        Process(fd, _rpcProtocol.GetRequestId(), _rpcProtocol.GetMsgType(), _rpcProtocol.GetMsg());
+    data.resize(rpcProtocol.protoMsgLen);
+    if(rpcProtocol.protoMsgLen == 0) {
+        return;
+    }
+    if(recvBuf.GetBuffer(rpcProtocol.protoMsgLen, data)) {
+        rpcProtocol.ParseBody(data);
+        Process(fd, rpcProtocol.protoUUID, rpcProtocol.serviceIndex, rpcProtocol.serializePara);
     }
 }
 

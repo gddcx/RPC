@@ -12,7 +12,7 @@ public:
     RpcClient(int netThread);
 public:
     RpcConnector rpcConnector;
-    void RpcFunc1(RPCMsg::Request& req, RPCMsg::Response& rsp) override;
+    void RpcFunc1(RPCMsg::Request& req, RPCMsg::Response& rsp, std::pair<uint32_t, uint16_t> ipPort) override;
 };
 
 }

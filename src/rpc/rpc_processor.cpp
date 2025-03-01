@@ -15,22 +15,22 @@ void RpcProcessor::SetAcceptor(RpcAcceptor* rpcAcceptor) {
     _rpcAcceptor->Process = std::bind(&RpcProcessor::Process, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
 }
 
-void RpcProcessor::Process(int fd, int requestId, uint8_t msgType, std::string& data) {
-    if(_serviceTable.find((msgType)) != _serviceTable.end()) {
+void RpcProcessor::Process(int fd, int requestId, uint16_t serviceIndex, std::string& data) {
+    if(_serviceTable.find((serviceIndex)) != _serviceTable.end()) {
         auto future = _threadPool.Submit(
-            [&](std::string& para){
-                std::string res = _serviceTable[msgType](para);
-                RpcProtocol::Build(requestId, msgType, res);
-                this->_rpcAcceptor->SendMsg(fd, res);
+            [this,serviceIndex,requestId,fd](std::string& para){
+                std::string res = _serviceTable[serviceIndex](para);
+                std::string rsp = RpcProtocol::Build(requestId, serviceIndex, res);
+                _rpcAcceptor->SendMsg(fd, rsp);
             },
             data
         );
     } else {
-        std::cout << __func__ << ">>> msgType:" << (int)msgType << " has no corresponsding service function" << std::endl;
+        std::cout << __func__ << ">>> serviceIndex:" << serviceIndex << " has no corresponsding service function" << std::endl;
     }
 }
 
-void RpcProcessor::MessageRegister(uint8_t serviceId, std::function<std::string(std::string)> handler) {
+void RpcProcessor::MessageRegister(uint16_t serviceId, std::function<std::string(std::string)> handler) {
     _serviceTable.insert(std::make_pair(serviceId, handler));
 }
 

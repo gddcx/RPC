@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <arpa/inet.h>
 #include "rpc_connector.h"
 #include "rpc_protocol.h"
 
@@ -15,7 +16,10 @@ RpcConnector::RpcConnector(int netThread): _tcpClient(netThread) {
 
     _tcpClient.InitClient(4096);
     _tcpClient.StartClient();
-    _fd = _tcpClient.Connect("127.0.0.1", 50010);
+}
+
+RpcConnector::~RpcConnector() {
+    _tcpClient.CloseClient();
 }
 
 void RpcConnector::_SafeMapInsert(std::pair<int, std::shared_ptr<std::promise<std::string>>> pair) {
@@ -33,38 +37,59 @@ void RpcConnector::_onConnectCallback(int fd) {
 }
 
 void RpcConnector::_onCloseCallback(int fd) {
-
+    {
+        std::lock_guard<std::mutex> lock(_hasConnMutex);
+        _getFdFromIpPort.erase(_getIpPortFromFd[fd]);
+        _getIpPortFromFd.erase(fd);
+    }
+    _tcpClient.Disconnection(fd);
 }
 
 void RpcConnector::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
     RpcProtocol rpcProtocol;
-    int httpHeaderLen = rpcProtocol.GetHttpHeaderLen();
-    std::vector<char> data(httpHeaderLen, 0);
-    if(recvBuf.GetBuffer(httpHeaderLen, data)) {
-        rpcProtocol.ParseHttp(data);
+    int headerLen = rpcProtocol.commHeaderLen;
+    std::vector<char> data(headerLen, 0);
+    if(recvBuf.GetBuffer(headerLen, data)) {
+        rpcProtocol.ParseHeader(data);
     } else {
         return;
     }
     data.clear();
 
-    int msgLen = rpcProtocol.GetMsgLen();
+    int msgLen = rpcProtocol.protoMsgLen;
     data.resize(msgLen);
-    std::cout << __func__ << "receive rsp" << std::endl;
     if(recvBuf.GetBuffer(msgLen, data)) {
-        rpcProtocol.ParseMsg(data);
-        int requestId = rpcProtocol.GetRequestId();
-        std::cout << __func__ << "requestId = " << requestId << std::endl;
-        std::cout << __func__ << "GetMsg() = " << rpcProtocol.GetMsg() << std::endl;
-        _requestMap[requestId]->set_value(rpcProtocol.GetMsg());
+        rpcProtocol.ParseBody(data);
+        int requestId = rpcProtocol.protoUUID;
+        _requestMap[requestId]->set_value(rpcProtocol.serializePara);
         _SafeMapDelete(requestId);
     }
 }
 
-std::string RpcConnector::CallRemoteApi(char msgType, std::string& para) {
+std::string RpcConnector::CallRemoteApi(uint16_t serviceIndex, std::string& para, std::pair<uint32_t, uint16_t> ipPort) {
+    int fd = 0;
+    {
+        std::lock_guard<std::mutex> lock(_hasConnMutex);
+        if(_getFdFromIpPort.find(ipPort) != _getFdFromIpPort.end()) {
+            fd = _getFdFromIpPort[ipPort];
+        } else {
+            sockaddr_in addr;
+            addr.sin_addr.s_addr = htonl(ipPort.first);
+            char ipStr[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &addr.sin_addr, ipStr, INET_ADDRSTRLEN);
+            fd = _tcpClient.Connect(ipStr, ipPort.second);
+            if(fd < 0) {
+                std::cout << __func__ << "connect failed" << std::endl;
+                return "";
+            }
+            _getFdFromIpPort.insert(std::make_pair(ipPort, fd));
+            _getIpPortFromFd.insert(std::make_pair(fd, ipPort));
+        }
+    }
+
     int requestId = _requestId.fetch_add(1);
-    std::cout << "requestId = " << requestId << std::endl;
-    RpcProtocol::Build(requestId, msgType, para);
-    _tcpClient.SendMsg(_fd, std::vector<char>(para.begin(), para.end()));
+    std::string data = RpcProtocol::Build(requestId, serviceIndex, para);
+    _tcpClient.SendMsg(fd, std::vector<char>(data.begin(), data.end()));
 
     auto promise = std::make_shared<std::promise<std::string>>();
     _SafeMapInsert(std::make_pair(requestId, promise));

@@ -18,7 +18,6 @@ public:
     RpcAcceptor(int netThreadNum);
     bool SendMsg(int fd, const std::string& data);
 private:
-    RpcProtocol _rpcProtocol;
     TcpServer _tcpServer;
 public:
     std::function<void(int, int, uint8_t, std::string&)> Process;
