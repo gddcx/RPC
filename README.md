@@ -15,4 +15,5 @@
 
 多节点运行：3 x \[2 core 4G\]
 
-![image](https://github.com/user-attachments/assets/d54e9ab8-db58-4ad8-8a0f-1cc9e07d4c1e)
+![image](https://github.com/user-attachments/assets/74753831-8e92-4ab6-b83b-ec288e861509)
+
