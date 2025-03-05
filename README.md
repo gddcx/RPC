@@ -10,7 +10,8 @@
 ## 运行结果
 单机运行：6 core 16G 运行
 
-![image](https://github.com/user-attachments/assets/246c94f9-05a4-4f19-b4dd-49ba36f29bb9)
+![image](https://github.com/user-attachments/assets/39e33aaa-9948-410b-922e-96bfeb380796)
+
 
 
 多节点运行：3 x \[2 core 4G\]
