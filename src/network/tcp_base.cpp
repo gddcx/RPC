@@ -13,6 +13,10 @@ namespace crpc
 
 TcpBase::TcpBase(int threadNum): _threadNum(threadNum), _threadPool(threadNum) {}
 
+TcpBase::~TcpBase() {
+    _CommClose();
+}
+
 int TcpBase::_WriteSocket(int fd) {
     int byteNum = 0;
     int hasSendByteNum = 0;
@@ -148,7 +152,6 @@ void TcpBase::_InitThreadPool() {
 }
 
 void TcpBase::_EventHandle(uint32 fd, uint32 event) {
-    std::cout << "EventHandle:" << event << std::endl;
     if(event & EPOLLOUT)
     {
         std::unique_lock<std::mutex> channLock(_channelMutex);
@@ -182,8 +185,10 @@ void TcpBase::_EventHandle(uint32 fd, uint32 event) {
 void TcpBase::_CommonInit(int recvBufferSize) {
     _recvBufferSize = recvBufferSize;
     _epollFd = epoll_create1(EPOLL_CLOEXEC);
-    _eventFd = eventfd(0, 0);
-    fcntl(_eventFd, F_SETFL, FD_CLOEXEC);
+    if(_epollFd == -1) {
+        std::cout << "_epollFd=" << -1 << "errno:" << errno << std::endl;
+        exit(EXIT_FAILURE);
+    }
     _InitThreadPool();
 }
 
@@ -204,23 +209,15 @@ void TcpBase::SendMsg(int fd, const std::vector<char>& sendBuffer) {
 void TcpBase::_CommClose() {
     _running = false;
 
-    write(_eventFd, &_running, sizeof(_running));
-    _mainThread.join();
-
     for(auto& thread: _threadPool) { // 等待还有任务的线程执行完
         thread.cv.notify_one();
         if(thread.t.joinable()) thread.t.join();
     }
 
-    {
-        std::lock_guard<std::mutex> lock(_channelMutex);
-        for(auto& pair: _channels) {
-            if(_onClose) _onClose(pair.first);
-            close(pair.first);
-        }
+    while(_channels.size() != 0) {
+        Disconnection(_channels.begin()->first);
     }
 
-    if(_eventFd != -1) close(_eventFd);
     if(_epollFd != -1) close(_epollFd); // TODO: epoll_wait期间close(_epollFd)会怎么样
 }
 

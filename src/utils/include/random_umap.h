@@ -22,7 +22,6 @@ public:
     void Insert(K key, V value) {
         _umap[key] = value;
         _vec.push_back({key, value, _vec.size()});
-        std::cout << __func__ << "key:" << key << " value:" << value << " size:" << _vec.size() << std::endl;
     }
     void Erase(K key) {
         if(_umap.find(key) != _umap.end()) {

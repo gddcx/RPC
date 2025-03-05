@@ -22,6 +22,9 @@ public:
     void StartClient();
     void CloseClient();
     int Connect(std::string ipAddr, uint16 port);
+private:
+    int _eventFd = -1;
+    std::thread _mainThread;
 };
 
 }

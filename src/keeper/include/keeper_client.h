@@ -16,6 +16,7 @@ private:
     void _onConnectCallback(int fd);
     void _onMessageCallback(int fd, RecvBuffer& recvBuf);
     void _onCloseCallback(int fd);
+    void _SafeExec(uint16_t serviceIndex, std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>& dest);
     void _SafeInsert(uint16_t serviceIndex, std::shared_ptr<std::promise<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>>> promise);
     void _SafeErase(uint16_t serviceIndex);
 public:

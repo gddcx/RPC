@@ -96,7 +96,6 @@ void Monitoring::_RecvMsg() {
     IPCMsg msg;
     int msgNum = 0;
     while(_ipcMsgQueue.RecvMsg(0, msg)) { //  type = 0 读取任意类型
-        std::cout << "_RecvMsg:" << msg.type << "," << (uint32_t)msg.data << std::endl;
         if(msg.type < TYPE_NUM) {
             _ipcMsg[msg.type] = msg.data;
         }

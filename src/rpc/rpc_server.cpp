@@ -37,7 +37,7 @@ void RpcServer::RpcFuncSet() {
     for(int idx = 0; idx < RpcFuncNum; ++idx) {
         _keeperClient->RegisterService(idx, ipAddr, port);
         _rpcProcessor.MessageRegister(idx, _IDToFunc[idx]);
-        _logger.Log(LOG_INFO, "register service %d", idx);
+        // _logger.Log(LOG_INFO, "register service %d", idx);
     }
 }
 

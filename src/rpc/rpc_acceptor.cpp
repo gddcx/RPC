@@ -22,6 +22,7 @@ void RpcAcceptor::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
     if(recvBuf.GetBuffer(rpcProtocol.commHeaderLen, data)) {
         rpcProtocol.ParseHeader(data);
     } else {
+        std::cout << "ParseHeader fail, fd:" << fd << std::endl;
         return;
     }
     data.clear();
@@ -32,6 +33,8 @@ void RpcAcceptor::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
     if(recvBuf.GetBuffer(rpcProtocol.protoMsgLen, data)) {
         rpcProtocol.ParseBody(data);
         Process(fd, rpcProtocol.protoUUID, rpcProtocol.serviceIndex, rpcProtocol.serializePara);
+    } else {
+        std::cout << "ParseBody fail, fd:" << fd << std::endl;
     }
 }
 

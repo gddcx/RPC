@@ -10,17 +10,16 @@
 RpcBalancer::RpcBalancer(): _tcpClient(1) {
     _uuid.store(0);
 
-    _timerThread = std::thread(&Timer::RunTimer, &_timer);
-    _timerThread.detach();
+    // _timerThread = std::thread(&Timer::RunTimer, &_timer);
 
     _tcpClient.SetOnMessage(std::bind(&RpcBalancer::_onMessageCallback, this, std::placeholders::_1, std::placeholders::_2));
     _tcpClient.SetOnClose(std::bind(&RpcBalancer::_onCloseCallback, this, std::placeholders::_1));
     _tcpClient.InitClient(4096);
     _tcpClient.StartClient();
 
-    _timer.AddTimer(5000, [this](){
-        _SendHeartBeat();
-    }, true);
+    // _timer.AddTimer(5000, [this](){
+    //     _SendHeartBeat();
+    // }, true);
 }
 
 RpcBalancer::~RpcBalancer() {
@@ -28,8 +27,7 @@ RpcBalancer::~RpcBalancer() {
     if(_timerThread.joinable()) {
         _timerThread.join();
     }
-    delete _keeperClient;
-    _tcpClient.CloseClient();
+    if(_keeperClient != nullptr) delete _keeperClient;
 }
 
 void RpcBalancer::SetKeeper(const std::string& ip, uint16_t port) {
@@ -66,12 +64,8 @@ void RpcBalancer::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
         case MessageType::PONG: // 收到回应
         {
             if(_callbacks.find(protocol.protoUUID) != _callbacks.end()) {
-                for(auto& p: protocol.payLoad) {
-                    std::cout << "type:" << (uint32_t)p.first << " data:" << (uint32_t)p.second << std::endl;
-                }
                 _callbacks[protocol.protoUUID](protocol.payLoad[HeartBeatProtocol::SCORE1]); // TODO:和超时定时器的删除操作要互斥
                 _SafeEraseCallback(protocol.protoUUID);
-                std::cout << "get pong from uuid:" << protocol.protoUUID << std::endl;
             }
             break;
         }
@@ -90,18 +84,16 @@ void RpcBalancer::_SendHeartBeat() { // TODO: bug 一段时间后就不发心跳
         while(hasSent.find(ip) != hasSent.end()) {
             ip = _nodeAbility.RandomGetKey();
         }
-        std::cout << "[" << n << "/" << ipNum << "] send heart beat to ip:" << ip << std::endl;
 
         if(_connCacheIP2Fd.find(ip) != _connCacheIP2Fd.end()) { // TODO: 线程安全
             fd = _connCacheIP2Fd[ip];
         } else {
             sockaddr_in addr;
-            addr.sin_addr.s_addr = htonl(ip);
+            addr.sin_addr.s_addr = ip;
             char ipStr[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &addr.sin_addr, ipStr, INET_ADDRSTRLEN);
-            int fd = _tcpClient.Connect(ipStr, 50011);
+            fd = _tcpClient.Connect(ipStr, 50011);
             if(fd < 0) {
-                std::cout << __func__ << "<<< connect failed" << std::endl;
                 return;
             }
             _connCacheIP2Fd[ip] = fd;
@@ -109,13 +101,11 @@ void RpcBalancer::_SendHeartBeat() { // TODO: bug 一段时间后就不发心跳
         }
 
         TimerPara timerPara = _timer.AddTimer(3000, [this,ip,uuid](){ /* TODO:改造返回值，不要用Timepara，用shared_ptr */
-            std::cout << __func__ << "<<< lose heart beat" << std::endl;
             _nodeAbility[ip] /= 2; // TODO：心跳丢失，节点分数变更策略
             _SafeEraseCallback(uuid);
         }, false);
 
         _SafeInsertCallback(uuid, [timerPara,ip,this](uint8_t score) {
-            std::cout << "heart beat score:" << (int)score << std::endl;
             _timer.DeleteTimer(timerPara);
             _nodeAbility[ip] = score;
         });
@@ -143,9 +133,7 @@ std::pair<uint32_t, uint16_t> RpcBalancer::FetchServiceNode(uint16_t serviceInde
         auto future = _keeperClient->FetchService(serviceIndex);
         auto IpPorts = future.get();
         _serviceCache[serviceIndex].insert(IpPorts.begin(), IpPorts.end());
-        std::cout << "fetch machine info from keeper:" << IpPorts.size() << std::endl;
         for(auto& machine: IpPorts) {
-            std::cout << "" << machine.first << " " << machine.second << std::endl;
             if(_nodeAbility.find(machine.first) == _nodeAbility.end()) {
                 _nodeAbility[machine.first] = 10;
             }

@@ -1,7 +1,10 @@
 #include <fcntl.h>
 #include <sys/epoll.h>
 #include <iostream>
-
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/tcp.h>
+#include <netinet/in.h>
 #include "net_utils.h"
 
 void SetNonBlockSock(uint32 fd) {
@@ -18,6 +21,11 @@ void SetCloexecSock(uint32 fd) {
     if(fcntl(fd, F_SETFD, stat) == 0) {
         std::cout << __func__ << ">>> set fd'" << fd << " cloexec" << std::endl;
     }
+}
+
+void SetNoDelay(int fd) {
+    int flag = 1;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
 }
 
 void EpollAddSock(uint32 epoll, uint32 fd, uint32 event) {

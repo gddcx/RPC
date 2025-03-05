@@ -66,6 +66,7 @@ protected:
     void _CommClose();
 public:
     TcpBase(int threadNum);
+    ~TcpBase();
     void SendMsg(int fd, const std::vector<char>& sendBuffer);
     void Disconnection(int fd);
     void SetOnMessage(const OnMessageCallback& onMessage);
@@ -73,11 +74,9 @@ public:
     void SetOnClose(const OnCloseCallback& onClose);
 protected:
     int _epollFd;
-    int _eventFd;
     int _recvBufferSize = 0;
     int _threadNum;
     bool _running = true;
-    std::thread _mainThread;
     std::vector<ThreadPara> _threadPool;
     std::mutex _channelMutex;
     std::unordered_map<int, TcpChannel> _channels;

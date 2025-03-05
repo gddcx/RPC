@@ -21,7 +21,7 @@ KeeperClient::KeeperClient(const std::string& serverIP, uint16_t port, int netTh
 }
 
 KeeperClient::~KeeperClient() {
-    _tcpClient.CloseClient();
+    if(_fd != -1) close(_fd);
 }
 
 void KeeperClient::RegisterService(uint16_t serviceIndex, uint32_t ipAddr, uint16_t port) {
@@ -32,10 +32,10 @@ void KeeperClient::RegisterService(uint16_t serviceIndex, uint32_t ipAddr, uint1
 
 std::future<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>> KeeperClient::FetchService(uint16_t serviceIndex) {
     uint16_t uuid = _uuid.fetch_add(1);
-    std::string data = ServiceDiscovery::Build(MessageType::FUNC_QUERY, uuid, serviceIndex);
-    _tcpClient.SendMsg(_fd, std::vector<char>(data.begin(), data.end()));
     auto promise = std::make_shared<std::promise<std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>>>();
     _SafeInsert(serviceIndex, promise);
+    std::string data = ServiceDiscovery::Build(MessageType::FUNC_QUERY, uuid, serviceIndex);
+    _tcpClient.SendMsg(_fd, std::vector<char>(data.begin(), data.end()));
     return promise->get_future();
 }
 
@@ -63,10 +63,17 @@ void KeeperClient::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
     }
 
     if(serviceDiscovery.protoMsgType == MessageType::FUNC_QUERY) {
-        _taskSyncTbl[serviceDiscovery.serviceIndex]->set_value(serviceDiscovery.serviceDest);
+        _SafeExec(serviceDiscovery.serviceIndex, serviceDiscovery.serviceDest);
         _SafeErase(serviceDiscovery.serviceIndex);
     } else if(serviceDiscovery.protoMsgType == MessageType::FUNC_REGISTER) {
 
+    }
+}
+
+void KeeperClient::_SafeExec(uint16_t serviceIndex, std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>& dest) {
+    std::lock_guard<std::mutex> lock(_taskSyncTblMutex);
+    if(_taskSyncTbl.find(serviceIndex) != _taskSyncTbl.end()) {
+        _taskSyncTbl[serviceIndex]->set_value(dest);
     }
 }
 

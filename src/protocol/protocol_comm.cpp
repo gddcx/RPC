@@ -15,6 +15,6 @@ std::string ProtocolComm::BulidComm(uint8_t type, uint16_t id, uint16_t len) {
 
 void ProtocolComm::ParseComm(const std::vector<char>& data) {
     protoMsgType = data[0];
-    protoUUID = (data[2] << 8) | data[1];
-    protoMsgLen = (data[4] << 8) | data[3];
+    protoUUID = ((data[2] & 0xff) << 8) | (data[1] & 0xff);
+    protoMsgLen = ((data[4] & 0xff) << 8) | (data[3] & 0xff);
 }

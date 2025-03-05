@@ -9,7 +9,7 @@
 namespace crpc {
 
 RpcConnector::RpcConnector(int netThread): _tcpClient(netThread) {
-    _requestId = 0;
+    _requestId.store(0);
 
     _tcpClient.SetOnConnect(std::bind(&RpcConnector::_onConnectCallback, this, std::placeholders::_1));
     _tcpClient.SetOnMessage(std::bind(&RpcConnector::_onMessageCallback, this, std::placeholders::_1, std::placeholders::_2));
@@ -20,15 +20,24 @@ RpcConnector::RpcConnector(int netThread): _tcpClient(netThread) {
 }
 
 RpcConnector::~RpcConnector() {
-    _tcpClient.CloseClient();
+    // _tcpClient.CloseClient();
 }
 
-void RpcConnector::_SafeMapInsert(std::pair<int, std::shared_ptr<std::promise<std::string>>> pair) {
+void RpcConnector::_SafeExec(uint16_t requestId, std::string& para) {
+    std::lock_guard<std::mutex> lock(_requestMapMutex);
+    if(_requestMap.find(requestId) == _requestMap.end()) {
+        std::cout << "request id error, requestId:" << requestId << std::endl;
+        return;
+    }
+    _requestMap[requestId]->set_value(para);
+}
+
+void RpcConnector::_SafeMapInsert(std::pair<uint16_t, std::shared_ptr<std::promise<std::string>>> pair) {
     std::lock_guard<std::mutex> lock(_requestMapMutex);
     _requestMap.insert(pair);
 }
 
-void RpcConnector::_SafeMapDelete(int requestId) {
+void RpcConnector::_SafeMapDelete(uint16_t requestId) {
     std::lock_guard<std::mutex> lock(_requestMapMutex);
     _requestMap.erase(requestId);
 }
@@ -53,17 +62,20 @@ void RpcConnector::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
     if(recvBuf.GetBuffer(headerLen, data)) {
         rpcProtocol.ParseHeader(data);
     } else {
+        std::cout << "fd:" << fd << " can not get completed header. len:" << headerLen << std::endl;
         return;
     }
+
     data.clear();
 
     int msgLen = rpcProtocol.protoMsgLen;
     data.resize(msgLen);
     if(recvBuf.GetBuffer(msgLen, data)) {
         rpcProtocol.ParseBody(data);
-        int requestId = rpcProtocol.protoUUID;
-        _requestMap[requestId]->set_value(rpcProtocol.serializePara);
-        _SafeMapDelete(requestId);
+        _SafeExec(rpcProtocol.protoUUID, rpcProtocol.serializePara);
+        _SafeMapDelete(rpcProtocol.protoUUID);
+    } else {
+        std::cout << "fd:" << fd << " can not get completed body, len:" << msgLen << std::endl;
     }
 }
 
@@ -88,13 +100,14 @@ std::string RpcConnector::CallRemoteApi(uint16_t serviceIndex, std::string& para
         }
     }
 
-    int requestId = _requestId.fetch_add(1);
-    std::string data = RpcProtocol::Build(requestId, serviceIndex, para);
-    _tcpClient.SendMsg(fd, std::vector<char>(data.begin(), data.end()));
+    uint16_t requestId = _requestId.fetch_add(1);
 
     auto promise = std::make_shared<std::promise<std::string>>();
     _SafeMapInsert(std::make_pair(requestId, promise));
     auto future = promise->get_future();
+
+    std::string data = RpcProtocol::Build(requestId, serviceIndex, para);
+    _tcpClient.SendMsg(fd, std::vector<char>(data.begin(), data.end()));
 
     if(future.wait_for(std::chrono::seconds(3)) == std::future_status::ready) {
         return future.get(); // 阻塞调用

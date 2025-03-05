@@ -21,7 +21,6 @@ private:
                     std::unique_lock<std::mutex> lock(_pool->_threadMutex);
                     _pool->_threadCv.wait(lock, [&](){return !_pool->_taskQue.empty();});
                     hasTask = _pool->_taskQue.fetch(func);
-                    std::cout << "start task. hasTask:" << hasTask << std::endl; 
                 }
                 if(hasTask) {
                     func();

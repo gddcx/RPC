@@ -36,16 +36,18 @@ private:
     std::atomic<uint32_t> _uuid;
     std::mutex _cacheMutex;
     std::mutex _callbacksMutex;
-    KeeperClient* _keeperClient;  // 连接到注册中心
+    KeeperClient* _keeperClient = nullptr;  // 连接到注册中心
     TcpClient _tcpClient;   // 连接到RPC服务端
     Timer _timer;
     std::thread _timerThread;
+    /* ==============和rpc server通信相关===================*/
     std::unordered_map<uint16_t, std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>> _serviceCache; // serviceID: {{IP,Port}}
     std::unordered_map<uint32_t, std::function<void(uint8_t)>> _callbacks; // uuid: callback
     RandomUMap<uint32_t, uint8_t> _nodeAbility; // IP: score
+    std::unordered_map<uint32_t, uint16_t> _nodeConnCnt;
+    /* ==============和monitoring通信相关===================*/
     std::unordered_map<uint32_t, int> _connCacheIP2Fd; // IP: fd
     std::unordered_map<int, uint32_t> _connCacheFd2IP; // fd: IP
-    std::unordered_map<uint32_t, uint16_t> _nodeConnCnt;
 };
 
 #endif

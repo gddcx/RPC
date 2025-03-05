@@ -29,6 +29,8 @@ public:
 
 private:
     int _serverFd = -1;
+    int _eventFd = -1;
+    std::thread _mainThread;
 };
 
 }
