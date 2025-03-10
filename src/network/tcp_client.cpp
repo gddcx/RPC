@@ -62,6 +62,7 @@ int TcpClient::Connect(std::string ipAddr, uint16 port) {
         std::cout << __func__ << ">>> " << "create socket fail. errno:" << errno << std::endl;
         return -1;
     }
+    SetNonBlockSock(fd);
 
     sockaddr_in sockInfo;
     sockInfo.sin_family = AF_INET;
@@ -70,7 +71,6 @@ int TcpClient::Connect(std::string ipAddr, uint16 port) {
     if(connect(fd, (sockaddr*)&sockInfo, sizeof(sockaddr)) == 0)
     {
         std::cout << __func__ << ">>> " << "connect to " << ipAddr << ":" << port << " succ. fd:" << fd << std::endl;
-        SetNonBlockSock(fd); // TODO:放在这个位置设置block的话，如果connect不上就会一阻塞
         SetNoDelay(fd);
         EpollAddSock(_epollFd, fd, EPOLLIN | EPOLLOUT | EPOLLET);
         std::lock_guard<std::mutex> channLock(_channelMutex);

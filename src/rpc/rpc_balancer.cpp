@@ -10,16 +10,16 @@
 RpcBalancer::RpcBalancer(): _tcpClient(1) {
     _uuid.store(0);
 
-    // _timerThread = std::thread(&Timer::RunTimer, &_timer);
+    _timerThread = std::thread(&Timer::RunTimer, &_timer);
 
     _tcpClient.SetOnMessage(std::bind(&RpcBalancer::_onMessageCallback, this, std::placeholders::_1, std::placeholders::_2));
     _tcpClient.SetOnClose(std::bind(&RpcBalancer::_onCloseCallback, this, std::placeholders::_1));
     _tcpClient.InitClient(4096);
     _tcpClient.StartClient();
 
-    // _timer.AddTimer(5000, [this](){
-    //     _SendHeartBeat();
-    // }, true);
+    _timer.AddTimer(5000, [this](){
+        _SendHeartBeat();
+    }, true);
 }
 
 RpcBalancer::~RpcBalancer() {
@@ -72,7 +72,7 @@ void RpcBalancer::_onMessageCallback(int fd, RecvBuffer& recvBuf) {
     }
 }
 
-void RpcBalancer::_SendHeartBeat() { // TODO: bug 一段时间后就不发心跳了
+void RpcBalancer::_SendHeartBeat() {
     uint32_t uuid = _uuid.fetch_add(1);
     uint32_t ip = 0;
     std::set<uint32_t> hasSent;
@@ -94,7 +94,7 @@ void RpcBalancer::_SendHeartBeat() { // TODO: bug 一段时间后就不发心跳
             inet_ntop(AF_INET, &addr.sin_addr, ipStr, INET_ADDRSTRLEN);
             fd = _tcpClient.Connect(ipStr, 50011);
             if(fd < 0) {
-                return;
+                continue;
             }
             _connCacheIP2Fd[ip] = fd;
             _connCacheFd2IP[fd] = ip;
