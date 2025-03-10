@@ -46,6 +46,10 @@ public:
         }
         return _umap[key];
     }
+    void Reserve(int size) {
+        _umap.reserve(size);
+        _vec.reserve(size);
+    }
 
 private:
     std::unordered_map<K, V> _umap;

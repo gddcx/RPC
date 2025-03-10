@@ -43,7 +43,8 @@ private:
     /* ==============和rpc server通信相关===================*/
     std::unordered_map<uint16_t, std::unordered_set<std::pair<uint32_t, uint16_t>, SetCmp>> _serviceCache; // serviceID: {{IP,Port}}
     std::unordered_map<uint32_t, std::function<void(uint8_t)>> _callbacks; // uuid: callback
-    RandomUMap<uint32_t, uint8_t> _nodeAbility; // IP: score
+    enum AbilityType {SCORE, RSP_TIME, ABILITY_NUM};
+    RandomUMap<uint32_t, std::vector<int8_t>> _nodeAbility; // IP: [score, RSP_TIME]
     std::unordered_map<uint32_t, uint16_t> _nodeConnCnt;
     /* ==============和monitoring通信相关===================*/
     std::unordered_map<uint32_t, int> _connCacheIP2Fd; // IP: fd

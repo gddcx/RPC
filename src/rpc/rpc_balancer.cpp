@@ -7,6 +7,11 @@
 #include "rpc_balancer.h"
 #include "heart_beat_protocol.h"
 
+#define BASE_RESPONSE_TIME 50
+#define MAX_RESPONSE_TIME  1000
+#define MAX_SCORE          10
+#define MIN_SCORE          1
+
 RpcBalancer::RpcBalancer(): _tcpClient(1) {
     _uuid.store(0);
 
@@ -20,6 +25,8 @@ RpcBalancer::RpcBalancer(): _tcpClient(1) {
     _timer.AddTimer(5000, [this](){
         _SendHeartBeat();
     }, true);
+
+    _nodeAbility.Reserve(ABILITY_NUM);
 }
 
 RpcBalancer::~RpcBalancer() {
@@ -101,13 +108,25 @@ void RpcBalancer::_SendHeartBeat() {
         }
 
         TimerPara timerPara = _timer.AddTimer(3000, [this,ip,uuid](){ /* TODO:改造返回值，不要用Timepara，用shared_ptr */
-            _nodeAbility[ip] /= 2; // TODO：心跳丢失，节点分数变更策略
+            _nodeAbility[ip][SCORE] /= 2; // TODO：心跳丢失，节点分数变更策略
             _SafeEraseCallback(uuid);
         }, false);
-
-        _SafeInsertCallback(uuid, [timerPara,ip,this](uint8_t score) {
+        
+        auto start = std::chrono::steady_clock::now();
+        _SafeInsertCallback(uuid, [timerPara,ip,start,this](uint8_t score) {
+            _nodeAbility[ip][SCORE] = score;
+            int ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+            int timeScore = 0;
+            if(ms <= BASE_RESPONSE_TIME) {
+                timeScore = MAX_SCORE;
+            } else if (ms >= MAX_RESPONSE_TIME) {
+                timeScore = MIN_SCORE;
+            } else {
+                timeScore = MAX_SCORE - ((ms - BASE_RESPONSE_TIME) / (MAX_RESPONSE_TIME - BASE_RESPONSE_TIME)) * (MAX_SCORE- MIN_SCORE);
+                timeScore = _nodeAbility[ip][RSP_TIME] * 0.7 + timeScore * 0.3;
+            }
+            _nodeAbility[ip][RSP_TIME] = timeScore;
             _timer.DeleteTimer(timerPara);
-            _nodeAbility[ip] = score;
         });
 
         std::string req = HeartBeatProtocol::Build(MessageType::PING, uuid);
@@ -135,7 +154,8 @@ std::pair<uint32_t, uint16_t> RpcBalancer::FetchServiceNode(uint16_t serviceInde
         _serviceCache[serviceIndex].insert(IpPorts.begin(), IpPorts.end());
         for(auto& machine: IpPorts) {
             if(_nodeAbility.find(machine.first) == _nodeAbility.end()) {
-                _nodeAbility[machine.first] = 10;
+                _nodeAbility[machine.first][SCORE] = MAX_SCORE;
+                _nodeAbility[machine.first][RSP_TIME] = MAX_SCORE;
             }
         }
     }
@@ -162,7 +182,7 @@ std::pair<uint32_t, uint16_t> RpcBalancer::_NodeSeletion(uint16_t serviceIndex) 
     for(const auto& p: nodeList) {
         ip = p.first;
         // 要避免羊群效应(惊群问题)：因为节点状态不是实时更新，如果判断某个节点状态好就一下子把所有请求到给到这个节点，反而会导致这个节点负载过高。
-        tmpAbility = (float)_nodeAbility[ip] / (_nodeConnCnt[ip] == 0 ? 1 : _nodeConnCnt[ip]);
+        tmpAbility = ((float)_nodeAbility[ip][SCORE] + (float)_nodeAbility[ip][RSP_TIME]) / (_nodeConnCnt[ip] == 0 ? 1 : _nodeConnCnt[ip]);
         if(tmpAbility >= ability) {
             ability = tmpAbility;
             sel = &p;
